@@ -34,6 +34,8 @@ import org.apache.flink.table.functions.FunctionKind;
 import org.apache.flink.table.functions.ScalarFunction;
 import org.apache.flink.table.module.Module;
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory;
+import org.apache.flink.table.planner.calcite.FlinkTypeSystem;
+import org.apache.flink.table.planner.calcite.RexTableArgCall;
 import org.apache.flink.table.planner.functions.bridging.BridgingSqlFunction;
 import org.apache.flink.table.planner.functions.sql.FlinkSqlOperatorTable;
 import org.apache.flink.table.planner.functions.utils.UserDefinedFunctionUtils;
@@ -82,12 +84,12 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.apache.flink.core.testutils.FlinkAssertions.anyCauseMatches;
+import static org.apache.flink.table.planner.plan.nodes.exec.serde.CompiledPlanSerdeUtil.createJsonObjectReader;
+import static org.apache.flink.table.planner.plan.nodes.exec.serde.CompiledPlanSerdeUtil.createJsonObjectWriter;
 import static org.apache.flink.table.planner.plan.nodes.exec.serde.JsonSerdeTestUtil.assertThatJsonContains;
 import static org.apache.flink.table.planner.plan.nodes.exec.serde.JsonSerdeTestUtil.assertThatJsonDoesNotContain;
 import static org.apache.flink.table.planner.plan.nodes.exec.serde.JsonSerdeTestUtil.testJsonRoundTrip;
 import static org.apache.flink.table.planner.plan.nodes.exec.serde.JsonSerdeTestUtil.toJson;
-import static org.apache.flink.table.planner.plan.nodes.exec.serde.JsonSerdeUtil.createObjectReader;
-import static org.apache.flink.table.planner.plan.nodes.exec.serde.JsonSerdeUtil.createObjectWriter;
 import static org.apache.flink.table.planner.plan.nodes.exec.serde.RexNodeJsonSerializer.FIELD_NAME_CLASS;
 import static org.apache.flink.table.utils.CatalogManagerMocks.DEFAULT_CATALOG;
 import static org.apache.flink.table.utils.CatalogManagerMocks.DEFAULT_DATABASE;
@@ -99,7 +101,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class RexNodeJsonSerdeTest {
 
-    private static final FlinkTypeFactory FACTORY = FlinkTypeFactory.INSTANCE();
+    private static final FlinkTypeFactory FACTORY =
+            new FlinkTypeFactory(
+                    RexNodeJsonSerdeTest.class.getClassLoader(), FlinkTypeSystem.INSTANCE);
     private static final String FUNCTION_NAME = "MyFunc";
     private static final FunctionIdentifier FUNCTION_SYS_ID = FunctionIdentifier.of(FUNCTION_NAME);
     private static final FunctionIdentifier FUNCTION_CAT_ID =
@@ -202,8 +206,8 @@ public class RexNodeJsonSerdeTest {
                                 TableException.class,
                                 "Could not lookup system function '" + FUNCTION_NAME + "'."));
 
-        // Registered temporary function
-        registerTemporaryFunction(serdeContext);
+        // Registered temporary system function
+        registerTemporarySystemFunction(serdeContext);
         callable.call();
     }
 
@@ -681,7 +685,17 @@ public class RexNodeJsonSerdeTest {
                         FlinkSqlOperatorTable.HASH_CODE,
                         rexBuilder.makeInputRef(FACTORY.createSqlType(SqlTypeName.INTEGER), 1)),
                 rexBuilder.makePatternFieldRef(
-                        "test", FACTORY.createSqlType(SqlTypeName.INTEGER), 0));
+                        "test", FACTORY.createSqlType(SqlTypeName.INTEGER), 0),
+                new RexTableArgCall(
+                        FACTORY.createStructType(
+                                StructKind.PEEK_FIELDS_NO_EXPAND,
+                                Arrays.asList(
+                                        FACTORY.createSqlType(SqlTypeName.VARCHAR),
+                                        FACTORY.createSqlType(SqlTypeName.INTEGER)),
+                                Arrays.asList("f1", "f2")),
+                        0,
+                        new int[] {1},
+                        new int[] {0}));
     }
 
     // --------------------------------------------------------------------------------------------
@@ -755,17 +769,24 @@ public class RexNodeJsonSerdeTest {
                         UNRESOLVED_FUNCTION_CAT_ID, NON_SER_FUNCTION_DEF_IMPL, false);
     }
 
+    private static void registerTemporarySystemFunction(SerdeContext serdeContext) {
+        serdeContext
+                .getFlinkContext()
+                .getFunctionCatalog()
+                .registerTemporarySystemFunction(FUNCTION_NAME, NON_SER_FUNCTION_DEF_IMPL, false);
+    }
+
     private JsonNode serializePermanentFunction(SerdeContext serdeContext) throws Exception {
         final byte[] actualSerialized =
-                createObjectWriter(serdeContext)
+                createJsonObjectWriter(serdeContext)
                         .writeValueAsBytes(createFunctionCall(serdeContext, PERMANENT_FUNCTION));
-        return createObjectReader(serdeContext).readTree(actualSerialized);
+        return createJsonObjectReader(serdeContext).readTree(actualSerialized);
     }
 
     private ContextResolvedFunction deserialize(SerdeContext serdeContext, JsonNode node)
             throws IOException {
         final RexNode actualDeserialized =
-                createObjectReader(serdeContext).readValue(node, RexNode.class);
+                createJsonObjectReader(serdeContext).readValue(node, RexNode.class);
         return ((BridgingSqlFunction) ((RexCall) actualDeserialized).getOperator())
                 .getResolvedFunction();
     }

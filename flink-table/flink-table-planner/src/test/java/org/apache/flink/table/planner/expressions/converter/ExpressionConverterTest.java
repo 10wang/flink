@@ -19,27 +19,18 @@
 package org.apache.flink.table.planner.expressions.converter;
 
 import org.apache.flink.table.api.DataTypes;
-import org.apache.flink.table.api.TableConfig;
-import org.apache.flink.table.catalog.CatalogManager;
-import org.apache.flink.table.catalog.FunctionCatalog;
 import org.apache.flink.table.expressions.TimePointUnit;
-import org.apache.flink.table.module.ModuleManager;
 import org.apache.flink.table.planner.delegation.PlannerContext;
-import org.apache.flink.table.planner.plan.metadata.MetadataTestUtil;
-import org.apache.flink.table.planner.plan.trait.FlinkRelDistributionTraitDef;
-import org.apache.flink.table.utils.CatalogManagerMocks;
+import org.apache.flink.table.planner.utils.PlannerMocks;
 
 import org.apache.calcite.avatica.util.TimeUnit;
-import org.apache.calcite.jdbc.CalciteSchema;
-import org.apache.calcite.plan.ConventionTraitDef;
-import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.DateString;
 import org.apache.calcite.util.TimeString;
 import org.apache.calcite.util.TimestampString;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -48,37 +39,19 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.Arrays;
 
 import static org.apache.flink.table.expressions.ApiExpressionUtils.valueLiteral;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Test for {@link ExpressionConverter}. */
-public class ExpressionConverterTest {
+class ExpressionConverterTest {
 
-    private final TableConfig tableConfig = new TableConfig();
-    private final CatalogManager catalogManager = CatalogManagerMocks.createEmptyCatalogManager();
-    private final ModuleManager moduleManager = new ModuleManager();
-    private final PlannerContext plannerContext =
-            new PlannerContext(
-                    false,
-                    tableConfig,
-                    moduleManager,
-                    new FunctionCatalog(tableConfig, catalogManager, moduleManager),
-                    catalogManager,
-                    CalciteSchema.from(MetadataTestUtil.initRootSchema()),
-                    Arrays.asList(
-                            ConventionTraitDef.INSTANCE,
-                            FlinkRelDistributionTraitDef.INSTANCE(),
-                            RelCollationTraitDef.INSTANCE));
+    private final PlannerContext plannerContext = PlannerMocks.create().getPlannerContext();
     private final ExpressionConverter converter =
-            new ExpressionConverter(
-                    plannerContext.createRelBuilder(
-                            CatalogManagerMocks.DEFAULT_CATALOG,
-                            CatalogManagerMocks.DEFAULT_DATABASE));
+            new ExpressionConverter(plannerContext.createRelBuilder());
 
     @Test
-    public void testLiteral() {
+    void testLiteral() {
         RexNode rex = converter.visit(valueLiteral((byte) 1));
         assertThat((int) ((RexLiteral) rex).getValueAs(Integer.class)).isEqualTo(1);
         assertThat(rex.getType().getSqlTypeName()).isEqualTo(SqlTypeName.TINYINT);
@@ -93,7 +66,7 @@ public class ExpressionConverterTest {
     }
 
     @Test
-    public void testCharLiteral() {
+    void testCharLiteral() {
         RexNode rex = converter.visit(valueLiteral("ABC", DataTypes.CHAR(4).notNull()));
         assertThat(((RexLiteral) rex).getValueAs(String.class)).isEqualTo("ABC ");
         assertThat(rex.getType().getSqlTypeName()).isEqualTo(SqlTypeName.CHAR);
@@ -101,7 +74,7 @@ public class ExpressionConverterTest {
     }
 
     @Test
-    public void testVarCharLiteral() {
+    void testVarCharLiteral() {
         RexNode rex = converter.visit(valueLiteral("ABC", DataTypes.STRING().notNull()));
         assertThat(((RexLiteral) rex).getValueAs(String.class)).isEqualTo("ABC");
         assertThat(rex.getType().getSqlTypeName()).isEqualTo(SqlTypeName.VARCHAR);
@@ -109,7 +82,7 @@ public class ExpressionConverterTest {
     }
 
     @Test
-    public void testBinaryLiteral() {
+    void testBinaryLiteral() {
         RexNode rex =
                 converter.visit(valueLiteral(new byte[] {1, 2, 3}, DataTypes.BINARY(4).notNull()));
         assertThat(((RexLiteral) rex).getValueAs(byte[].class)).isEqualTo(new byte[] {1, 2, 3, 0});
@@ -118,7 +91,7 @@ public class ExpressionConverterTest {
     }
 
     @Test
-    public void testTimestampLiteral() {
+    void testTimestampLiteral() {
         RexNode rex =
                 converter.visit(
                         valueLiteral(
@@ -131,7 +104,7 @@ public class ExpressionConverterTest {
     }
 
     @Test
-    public void testTimestampWithLocalZoneLiteral() {
+    void testTimestampWithLocalZoneLiteral() {
         RexNode rex =
                 converter.visit(
                         valueLiteral(
@@ -145,7 +118,7 @@ public class ExpressionConverterTest {
     }
 
     @Test
-    public void testTimeLiteral() {
+    void testTimeLiteral() {
         RexNode rex =
                 converter.visit(
                         valueLiteral(
@@ -157,7 +130,7 @@ public class ExpressionConverterTest {
     }
 
     @Test
-    public void testTimeLiteralBiggerPrecision() {
+    void testTimeLiteralBiggerPrecision() {
         RexNode rex =
                 converter.visit(
                         valueLiteral(
@@ -170,7 +143,7 @@ public class ExpressionConverterTest {
     }
 
     @Test
-    public void testDateLiteral() {
+    void testDateLiteral() {
         RexNode rex =
                 converter.visit(
                         valueLiteral(LocalDate.parse("2012-12-12"), DataTypes.DATE().notNull()));
@@ -180,7 +153,7 @@ public class ExpressionConverterTest {
     }
 
     @Test
-    public void testIntervalDayTime() {
+    void testIntervalDayTime() {
         Duration value = Duration.ofDays(3).plusMillis(21);
         RexNode rex = converter.visit(valueLiteral(value));
         assertThat(((RexLiteral) rex).getValueAs(BigDecimal.class))
@@ -194,7 +167,7 @@ public class ExpressionConverterTest {
     }
 
     @Test
-    public void testIntervalYearMonth() {
+    void testIntervalYearMonth() {
         Period value = Period.of(999, 3, 1);
         RexNode rex = converter.visit(valueLiteral(value));
         assertThat(((RexLiteral) rex).getValueAs(BigDecimal.class))
@@ -206,7 +179,7 @@ public class ExpressionConverterTest {
     }
 
     @Test
-    public void testDecimalLiteral() {
+    void testDecimalLiteral() {
         BigDecimal value = new BigDecimal("12345678.999");
         RexNode rex = converter.visit(valueLiteral(value));
         assertThat(((RexLiteral) rex).getValueAs(BigDecimal.class)).isEqualTo(value);
@@ -216,7 +189,7 @@ public class ExpressionConverterTest {
     }
 
     @Test
-    public void testSymbolLiteral() {
+    void testSymbolLiteral() {
         RexNode rex = converter.visit(valueLiteral(TimePointUnit.MICROSECOND));
         assertThat(((RexLiteral) rex).getValueAs(TimeUnit.class)).isEqualTo(TimeUnit.MICROSECOND);
         assertThat(rex.getType().getSqlTypeName()).isEqualTo(SqlTypeName.SYMBOL);

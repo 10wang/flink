@@ -65,22 +65,33 @@ public interface CompiledPlan extends Explainable<CompiledPlan>, Executable {
     /** Convert the plan to a JSON string representation. */
     String asJsonString();
 
-    /** @see #writeToFile(File) */
+    /** Convert the plan to a Smile binary representation. */
+    byte[] asSmileBytes();
+
+    /**
+     * @see #writeToFile(File)
+     */
     default void writeToFile(String path) {
         writeToFile(Paths.get(path));
     }
 
-    /** @see #writeToFile(File, boolean) */
+    /**
+     * @see #writeToFile(File, boolean)
+     */
     default void writeToFile(String path, boolean ignoreIfExists) {
         writeToFile(Paths.get(path), ignoreIfExists);
     }
 
-    /** @see #writeToFile(File) */
+    /**
+     * @see #writeToFile(File)
+     */
     default void writeToFile(Path path) {
         writeToFile(path.toFile());
     }
 
-    /** @see #writeToFile(File, boolean) */
+    /**
+     * @see #writeToFile(File, boolean)
+     */
     default void writeToFile(Path path, boolean ignoreIfExists) {
         writeToFile(path.toFile(), ignoreIfExists);
     }

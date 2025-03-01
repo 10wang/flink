@@ -18,7 +18,6 @@
 
 package org.apache.flink.table.catalog;
 
-import org.apache.flink.core.testutils.FlinkMatchers;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.Schema;
 import org.apache.flink.table.expressions.CallExpression;
@@ -33,7 +32,7 @@ import org.apache.flink.table.types.logical.TimestampKind;
 import org.apache.flink.table.types.utils.DataTypeFactoryMock;
 import org.apache.flink.table.utils.ExpressionResolverMocks;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
 
@@ -47,11 +46,10 @@ import static org.apache.flink.table.types.logical.utils.LogicalTypeChecks.isRow
 import static org.apache.flink.table.types.logical.utils.LogicalTypeChecks.isTimeAttribute;
 import static org.apache.flink.table.types.utils.TypeConversions.fromLogicalToDataType;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
-import static org.assertj.core.api.HamcrestCondition.matching;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Tests for {@link Schema}, {@link DefaultSchemaResolver}, and {@link ResolvedSchema}. */
-public class SchemaResolutionTest {
+class SchemaResolutionTest {
 
     private static final String COMPUTED_SQL = "orig_ts - INTERVAL '60' MINUTE";
 
@@ -113,7 +111,7 @@ public class SchemaResolutionTest {
                     .build();
 
     @Test
-    public void testSchemaResolution() {
+    void testSchemaResolution() {
         final ResolvedSchema expectedSchema =
                 new ResolvedSchema(
                         Arrays.asList(
@@ -157,7 +155,7 @@ public class SchemaResolutionTest {
     }
 
     @Test
-    public void testSchemaResolutionWithTimestampLtzRowtime() {
+    void testSchemaResolutionWithTimestampLtzRowtime() {
         final ResolvedSchema expectedSchema =
                 new ResolvedSchema(
                         Arrays.asList(
@@ -183,7 +181,7 @@ public class SchemaResolutionTest {
     }
 
     @Test
-    public void testSchemaResolutionWithSourceWatermark() {
+    void testSchemaResolutionWithSourceWatermark() {
         final ResolvedSchema expectedSchema =
                 new ResolvedSchema(
                         Collections.singletonList(
@@ -207,7 +205,7 @@ public class SchemaResolutionTest {
     }
 
     @Test
-    public void testSchemaResolutionErrors() {
+    void testSchemaResolutionErrors() {
 
         // columns
 
@@ -218,6 +216,26 @@ public class SchemaResolutionTest {
         testError(
                 Schema.newBuilder().columnByExpression("invalid", callSql("INVALID")).build(),
                 "Invalid expression for computed column 'invalid'.");
+
+        // metadata columns
+
+        testError(
+                Schema.newBuilder()
+                        .columnByMetadata("metadata", DataTypes.INT())
+                        .columnByMetadata("from_metadata", DataTypes.BIGINT(), "metadata", false)
+                        .build(),
+                "The column `metadata` and `from_metadata` in the table are both from the same metadata key 'metadata'. "
+                        + "Please specify one of the columns as the metadata column and use the "
+                        + "computed column syntax to specify the others.");
+
+        testError(
+                Schema.newBuilder()
+                        .columnByMetadata("from_metadata", DataTypes.BIGINT(), "metadata", false)
+                        .columnByMetadata("from_metadata2", DataTypes.STRING(), "metadata", true)
+                        .build(),
+                "The column `from_metadata` and `from_metadata2` in the table are both from the same metadata key 'metadata'. "
+                        + "Please specify one of the columns as the metadata column and use the "
+                        + "computed column syntax to specify the others.");
 
         // time attributes and watermarks
 
@@ -289,7 +307,7 @@ public class SchemaResolutionTest {
     }
 
     @Test
-    public void testUnresolvedSchemaString() {
+    void testUnresolvedSchemaString() {
         assertThat(SCHEMA.toString())
                 .isEqualTo(
                         "(\n"
@@ -306,7 +324,7 @@ public class SchemaResolutionTest {
     }
 
     @Test
-    public void testResolvedSchemaString() {
+    void testResolvedSchemaString() {
         final ResolvedSchema resolvedSchema = resolveSchema(SCHEMA);
         assertThat(resolvedSchema.toString())
                 .isEqualTo(
@@ -324,7 +342,7 @@ public class SchemaResolutionTest {
     }
 
     @Test
-    public void testGeneratedConstraintName() {
+    void testGeneratedConstraintName() {
         final Schema schema =
                 Schema.newBuilder()
                         .column("a", DataTypes.INT())
@@ -340,7 +358,7 @@ public class SchemaResolutionTest {
     }
 
     @Test
-    public void testSinkRowDataType() {
+    void testSinkRowDataType() {
         final ResolvedSchema resolvedSchema = resolveSchema(SCHEMA);
         final DataType expectedDataType =
                 DataTypes.ROW(
@@ -358,7 +376,7 @@ public class SchemaResolutionTest {
     }
 
     @Test
-    public void testPhysicalRowDataType() {
+    void testPhysicalRowDataType() {
         final ResolvedSchema resolvedSchema1 = resolveSchema(SCHEMA);
         final DataType expectedDataType =
                 DataTypes.ROW(
@@ -381,7 +399,7 @@ public class SchemaResolutionTest {
     }
 
     @Test
-    public void testSourceRowDataType() {
+    void testSourceRowDataType() {
         final ResolvedSchema resolvedSchema = resolveSchema(SCHEMA);
         final DataType expectedDataType =
                 DataTypes.ROW(
@@ -414,12 +432,8 @@ public class SchemaResolutionTest {
     }
 
     private static void testError(Schema schema, String errorMessage, boolean isStreaming) {
-        try {
-            resolveSchema(schema, isStreaming);
-            fail("Error message expected: " + errorMessage);
-        } catch (Throwable t) {
-            assertThat(t).satisfies(matching(FlinkMatchers.containsMessage(errorMessage)));
-        }
+        assertThatThrownBy(() -> resolveSchema(schema, isStreaming))
+                .hasMessageContaining(errorMessage);
     }
 
     private static ResolvedSchema resolveSchema(Schema schema) {

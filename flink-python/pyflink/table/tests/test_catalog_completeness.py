@@ -18,7 +18,7 @@
 
 from pyflink.testing.test_case_utils import PythonAPICompletenessTestCase, PyFlinkTestCase
 from pyflink.table.catalog import Catalog, CatalogDatabase, CatalogBaseTable, CatalogPartition, \
-    CatalogFunction, CatalogColumnStatistics, CatalogPartitionSpec, ObjectPath
+    CatalogFunction, CatalogColumnStatistics, CatalogPartitionSpec, ObjectPath, ObjectIdentifier
 
 
 class CatalogAPICompletenessTests(PythonAPICompletenessTestCase, PyFlinkTestCase):
@@ -44,8 +44,7 @@ class CatalogAPICompletenessTests(PythonAPICompletenessTestCase, PyFlinkTestCase
             'getFactory',
             'getTableFactory',
             'getFunctionDefinitionFactory',
-            'listPartitionsByFilter',
-            'supportsManagedTable'}
+            'listPartitionsByFilter'}
 
 
 class CatalogDatabaseAPICompletenessTests(PythonAPICompletenessTestCase, PyFlinkTestCase):
@@ -79,7 +78,7 @@ class CatalogBaseTableAPICompletenessTests(PythonAPICompletenessTestCase, PyFlin
 
     @classmethod
     def excluded_methods(cls):
-        return {'getUnresolvedSchema', 'getTableKind'}
+        return {'getUnresolvedSchema', 'getTableKind', 'getSchema'}
 
 
 class CatalogFunctionAPICompletenessTests(PythonAPICompletenessTestCase, PyFlinkTestCase):
@@ -95,6 +94,10 @@ class CatalogFunctionAPICompletenessTests(PythonAPICompletenessTestCase, PyFlink
     @classmethod
     def java_class(cls):
         return "org.apache.flink.table.catalog.CatalogFunction"
+
+    @classmethod
+    def excluded_methods(cls):
+        return {'getFunctionResources'}
 
 
 class CatalogPartitionAPICompletenessTests(PythonAPICompletenessTestCase, PyFlinkTestCase):
@@ -155,6 +158,21 @@ class CatalogColumnStatisticsAPICompletenessTests(PythonAPICompletenessTestCase,
     @classmethod
     def java_class(cls):
         return "org.apache.flink.table.catalog.stats.CatalogColumnStatistics"
+
+
+class ObjectIdentifierAPICompletenessTests(PythonAPICompletenessTestCase, PyFlinkTestCase):
+    """
+    Tests whether the Python :class:`ObjectIdentifier` is consistent with
+    Java `org.apache.flink.table.catalog.ObjectIdentifier`.
+    """
+
+    @classmethod
+    def python_class(cls):
+        return ObjectIdentifier
+
+    @classmethod
+    def java_class(cls):
+        return "org.apache.flink.table.catalog.ObjectIdentifier"
 
 
 if __name__ == '__main__':
